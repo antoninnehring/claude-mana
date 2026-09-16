@@ -15,9 +15,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         dropdown = StatusPanelController(usageService: usageService)
-        usageService.onResetBurst = { [weak self] in
+        usageService.onResetBurst = { [weak self] tint in
             guard let button = self?.statusItem.button else { return }
-            StatusExplosion.shared.play(from: button)
+            StatusExplosion.shared.play(from: button, tint: tint)
         }
 
         updateIcon()
@@ -27,10 +27,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         usageService.startPolling()
 
-        if CommandLine.arguments.contains("--explode") {
+        if CommandLine.arguments.contains("--explode-weekly") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
                 guard let button = self?.statusItem.button else { return }
-                StatusExplosion.shared.play(from: button)
+                StatusExplosion.shared.play(from: button, tint: .red)
+            }
+        } else if CommandLine.arguments.contains("--explode") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                guard let button = self?.statusItem.button else { return }
+                StatusExplosion.shared.play(from: button, tint: .blue)
             }
         }
     }

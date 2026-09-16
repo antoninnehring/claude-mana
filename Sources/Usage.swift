@@ -18,7 +18,7 @@ class UsageService: ObservableObject {
     @Published var nextRefresh: Date?
     @Published var error: String?
 
-    var onResetBurst: (() -> Void)?
+    var onResetBurst: ((OrbTint) -> Void)?
 
     private var timer: Timer?
     private var resetWatchTimer: Timer?
@@ -50,10 +50,10 @@ class UsageService: ObservableObject {
         }
     }
 
-    private func fireResetBurst() {
+    private func fireResetBurst(_ tint: OrbTint) {
         if let lastBurstAt, Date().timeIntervalSince(lastBurstAt) < 20 { return }
         lastBurstAt = Date()
-        onResetBurst?()
+        onResetBurst?(tint)
     }
 
     private func scheduleResetWatch() {
@@ -63,18 +63,18 @@ class UsageService: ObservableObject {
             .filter { $0.timeIntervalSinceNow > 0.05 }
         guard let next = upcoming.min() else { return }
         let timer = Timer(timeInterval: next.timeIntervalSinceNow, repeats: false) { [weak self] _ in
-            self?.fireResetBurst()
-            self?.scheduleResetWatch()
+            guard let self else { return }
+            let weeklyDue = self.weeklyResetsAt.map { $0.timeIntervalSinceNow <= 1.5 } ?? false
+            self.fireResetBurst(weeklyDue ? .red : .blue)
+            self.scheduleResetWatch()
         }
         resetWatchTimer = timer
         RunLoop.main.add(timer, forMode: .common)
     }
 
-    private func noteResetDate(_ newDate: Date?, previous: inout Date?) {
-        if let previous, let newDate, newDate > previous.addingTimeInterval(30) {
-            fireResetBurst()
-        }
-        previous = newDate
+    private func jumped(_ newDate: Date?, previous: Date?) -> Bool {
+        guard let previous, let newDate else { return false }
+        return newDate > previous.addingTimeInterval(30)
     }
 
     private func getOAuthToken() -> String? {
@@ -167,8 +167,15 @@ class UsageService: ObservableObject {
                     }
                 }
 
-                self.noteResetDate(self.sessionResetsAt, previous: &self.lastSessionResetAt)
-                self.noteResetDate(self.weeklyResetsAt, previous: &self.lastWeeklyResetAt)
+                let sessionJumped = self.jumped(self.sessionResetsAt, previous: self.lastSessionResetAt)
+                let weeklyJumped = self.jumped(self.weeklyResetsAt, previous: self.lastWeeklyResetAt)
+                self.lastSessionResetAt = self.sessionResetsAt
+                self.lastWeeklyResetAt = self.weeklyResetsAt
+                if weeklyJumped {
+                    self.fireResetBurst(.red)
+                } else if sessionJumped {
+                    self.fireResetBurst(.blue)
+                }
                 self.scheduleResetWatch()
 
                 self.lastUpdated = Date()

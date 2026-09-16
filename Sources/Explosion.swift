@@ -1,13 +1,62 @@
 import AppKit
 
-/// Full-screen blue mana detonation centered on the menu-bar MiniOrb.
+struct ExplosionPalette {
+    let flash: NSColor
+    let wave: NSColor
+    let bloomInner: NSColor
+    let bloomMid: NSColor
+    let bloomOuter: NSColor
+    let coreHot: NSColor
+    let coreMid: NSColor
+    let coreOuter: NSColor
+    let sparkHot: NSColor
+    let spark: NSColor
+    let columnTop: NSColor
+    let columnBot: NSColor
+
+    static let blue = ExplosionPalette(
+        flash: NSColor(red: 0.35, green: 0.7, blue: 1.0, alpha: 1),
+        wave: NSColor(red: 0.45, green: 0.8, blue: 1.0, alpha: 1),
+        bloomInner: NSColor(red: 0.7, green: 0.9, blue: 1.0, alpha: 1),
+        bloomMid: NSColor(red: 0.15, green: 0.4, blue: 1.0, alpha: 1),
+        bloomOuter: NSColor(red: 0.05, green: 0.15, blue: 0.8, alpha: 1),
+        coreHot: NSColor(red: 0.4, green: 0.75, blue: 1.0, alpha: 1),
+        coreMid: NSColor(red: 0.05, green: 0.2, blue: 0.9, alpha: 1),
+        coreOuter: NSColor(red: 0, green: 0, blue: 0.5, alpha: 1),
+        sparkHot: NSColor(red: 0.85, green: 0.95, blue: 1.0, alpha: 1),
+        spark: NSColor(red: 0.2, green: 0.55, blue: 1.0, alpha: 1),
+        columnTop: NSColor(red: 0.6, green: 0.85, blue: 1.0, alpha: 1),
+        columnBot: NSColor(red: 0.2, green: 0.45, blue: 1.0, alpha: 1)
+    )
+
+    static let red = ExplosionPalette(
+        flash: NSColor(red: 1.0, green: 0.28, blue: 0.14, alpha: 1),
+        wave: NSColor(red: 1.0, green: 0.45, blue: 0.28, alpha: 1),
+        bloomInner: NSColor(red: 1.0, green: 0.72, blue: 0.45, alpha: 1),
+        bloomMid: NSColor(red: 1.0, green: 0.22, blue: 0.10, alpha: 1),
+        bloomOuter: NSColor(red: 0.7, green: 0.05, blue: 0.02, alpha: 1),
+        coreHot: NSColor(red: 1.0, green: 0.48, blue: 0.22, alpha: 1),
+        coreMid: NSColor(red: 0.85, green: 0.10, blue: 0.06, alpha: 1),
+        coreOuter: NSColor(red: 0.45, green: 0.02, blue: 0.01, alpha: 1),
+        sparkHot: NSColor(red: 1.0, green: 0.85, blue: 0.65, alpha: 1),
+        spark: NSColor(red: 1.0, green: 0.28, blue: 0.12, alpha: 1),
+        columnTop: NSColor(red: 1.0, green: 0.50, blue: 0.32, alpha: 1),
+        columnBot: NSColor(red: 0.75, green: 0.12, blue: 0.06, alpha: 1)
+    )
+
+    static func forTint(_ tint: OrbTint) -> ExplosionPalette {
+        tint == .red ? .red : .blue
+    }
+}
+
+/// Full-screen mana detonation centered on the menu-bar MiniOrb.
 final class StatusExplosion {
     static let shared = StatusExplosion()
 
     private var overlayWindows: [NSWindow] = []
     private var cleanupWork: DispatchWorkItem?
 
-    func play(from button: NSStatusBarButton) {
+    func play(from button: NSStatusBarButton, tint: OrbTint = .blue) {
         cleanupWork?.cancel()
         tearDown()
 
@@ -28,6 +77,7 @@ final class StatusExplosion {
         let content = ExplosionCanvas(
             origin: local,
             startedAt: startedAt,
+            palette: ExplosionPalette.forTint(tint),
             frame: NSRect(origin: .zero, size: screen.frame.size)
         )
 
@@ -69,11 +119,13 @@ final class StatusExplosion {
 final class ExplosionCanvas: NSView {
     private let origin: CGPoint
     private let startedAt: Date
+    private let palette: ExplosionPalette
     private var timer: Timer?
 
-    init(origin: CGPoint, startedAt: Date, frame: NSRect) {
+    init(origin: CGPoint, startedAt: Date, palette: ExplosionPalette, frame: NSRect) {
         self.origin = origin
         self.startedAt = startedAt
+        self.palette = palette
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -103,7 +155,7 @@ final class ExplosionCanvas: NSView {
 
         if t < 0.28 {
             let a = (1 - t / 0.28) * 0.55
-            ctx.setFillColor(NSColor(red: 0.35, green: 0.7, blue: 1.0, alpha: a * Double(fade)).cgColor)
+            ctx.setFillColor(palette.flash.withAlphaComponent(a * Double(fade)).cgColor)
             ctx.fill(bounds)
         }
 
@@ -118,7 +170,7 @@ final class ExplosionCanvas: NSView {
             let r = CGFloat(local) * wave.1
             let a = max(0, 1 - CGFloat(local) / 0.85) * fade * (i == 0 ? 0.95 : 0.55)
             guard a > 0.02, r > 4 else { continue }
-            ctx.setStrokeColor(NSColor(red: 0.45, green: 0.8, blue: 1.0, alpha: Double(a)).cgColor)
+            ctx.setStrokeColor(palette.wave.withAlphaComponent(Double(a)).cgColor)
             ctx.setLineWidth(wave.2 * a + 2)
             ctx.strokeEllipse(in: CGRect(x: origin.x - r, y: origin.y - r, width: r * 2, height: r * 2))
         }
@@ -127,9 +179,9 @@ final class ExplosionCanvas: NSView {
         let bloomA = max(0, 1 - CGFloat(t) / 1.2) * 0.8 * fade
         if bloomA > 0.02 {
             let colors = [
-                NSColor(red: 0.7, green: 0.9, blue: 1.0, alpha: Double(bloomA)).cgColor,
-                NSColor(red: 0.15, green: 0.4, blue: 1.0, alpha: Double(bloomA * 0.45)).cgColor,
-                NSColor(red: 0.05, green: 0.15, blue: 0.8, alpha: 0).cgColor,
+                palette.bloomInner.withAlphaComponent(Double(bloomA)).cgColor,
+                palette.bloomMid.withAlphaComponent(Double(bloomA * 0.45)).cgColor,
+                palette.bloomOuter.withAlphaComponent(0).cgColor,
             ] as CFArray
             if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.4, 1]) {
                 ctx.drawRadialGradient(
@@ -146,9 +198,9 @@ final class ExplosionCanvas: NSView {
         if coreR > 4 {
             let colors = [
                 NSColor(white: 1, alpha: 0.95 * Double(fade)).cgColor,
-                NSColor(red: 0.4, green: 0.75, blue: 1.0, alpha: 0.9 * Double(fade)).cgColor,
-                NSColor(red: 0.05, green: 0.2, blue: 0.9, alpha: 0.3 * Double(fade)).cgColor,
-                NSColor(red: 0, green: 0, blue: 0.5, alpha: 0).cgColor,
+                palette.coreHot.withAlphaComponent(0.9 * Double(fade)).cgColor,
+                palette.coreMid.withAlphaComponent(0.3 * Double(fade)).cgColor,
+                palette.coreOuter.withAlphaComponent(0).cgColor,
             ] as CFArray
             if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.25, 0.65, 1]) {
                 ctx.drawRadialGradient(
@@ -182,8 +234,8 @@ final class ExplosionCanvas: NSView {
             let sz = CGFloat(2.0 + Double(i % 8) * 1.1) * CGFloat(1 - life * 0.4)
             let hot = i % 4 == 0
             let color = hot
-                ? NSColor(red: 0.85, green: 0.95, blue: 1.0, alpha: alpha)
-                : NSColor(red: 0.2, green: 0.55, blue: 1.0, alpha: alpha * 0.9)
+                ? palette.sparkHot.withAlphaComponent(alpha)
+                : palette.spark.withAlphaComponent(alpha * 0.9)
             color.setFill()
             NSBezierPath(ovalIn: CGRect(x: x - sz / 2, y: y - sz / 2, width: sz, height: sz * (1.6 + CGFloat(life)))).fill()
         }
@@ -193,8 +245,8 @@ final class ExplosionCanvas: NSView {
             let colH = CGFloat(t * 1200)
             let colW = CGFloat(44 + t * 56)
             let colors = [
-                NSColor(red: 0.6, green: 0.85, blue: 1.0, alpha: colA).cgColor,
-                NSColor(red: 0.2, green: 0.45, blue: 1.0, alpha: colA * 0.1).cgColor,
+                palette.columnTop.withAlphaComponent(colA).cgColor,
+                palette.columnBot.withAlphaComponent(colA * 0.1).cgColor,
             ] as CFArray
             if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
                 ctx.saveGState()
