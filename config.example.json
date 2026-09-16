@@ -1,0 +1,7 @@
+{
+    "api_key": "sk-ant-admin01-YOUR-KEY-HERE",
+    "organization_id": "YOUR-ORG-ID",
+    "monthly_token_limit": 10000000,
+    "refresh_interval_seconds": 300,
+    "manual_level": 0.73
+}

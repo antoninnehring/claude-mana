@@ -1,0 +1,22 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+*.xcodeproj
+
+# Built app bundle
+*.app
+*.dSYM
+*.dSYM.zip
+
+# Local / secret config (example file is committed)
+config.json
+.env
+.env.*
+*.pem
+*.p12
+*.key
+
+# Xcode / macOS
+DerivedData/
+xcuserdata/
+.DS_Store
